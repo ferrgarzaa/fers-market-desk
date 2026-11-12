@@ -7,7 +7,7 @@
 |---|---|
 | **GitHub repository** | https://github.com/ferrgarzaa/fers-market-desk |
 | **Submitted commit** | `09d723735e581678aa6bc50fbc06248036ff9fd1` — https://github.com/ferrgarzaa/fers-market-desk/commit/09d723735e581678aa6bc50fbc06248036ff9fd1 |
-| **Demo video (30–60 s)** | VIDEO_LINK |
+| **Demo video (47 s)** | https://github.com/ferrgarzaa/fers-market-desk/blob/main/docs/demo/fers-market-desk-demo.mp4 (click *View raw* / download to play) |
 | **CI** | https://github.com/ferrgarzaa/fers-market-desk/actions |
 
 ---
@@ -31,6 +31,8 @@
 * The full path Yahoo → `YahooFeed` → `CandleStore` (SQLite) → `Hub` → `/ws` → chart is shown in the demo video.
 * **Unavailable feed:** a *Simulate feed outage* button closes the real Yahoo socket. A **real** failure was also captured: the development sandbox blocks Yahoo, and the app showed `UNAVAILABLE · InvalidProxyStatus: HTTP 403 – retry #5 in 8s` ([screenshot](docs/evidence/real-unavailable-feed.png)).
 * Documents: [README](README.md) (startup, database initialization, configuration; no credentials are needed or stored), [AGENTS.md](AGENTS.md), [docs/DATA_FLOW.md](docs/DATA_FLOW.md), [docs/SCHEMA.md](docs/SCHEMA.md), [docs/DESIGN.md](docs/DESIGN.md), [docs/VERIFICATION.md](docs/VERIFICATION.md), [AI-USE.md](AI-USE.md), [EVIDENCE-LOG.md](EVIDENCE-LOG.md).
+
+**Demo video contents** (recorded from the running app on my laptop with live Yahoo data, Nov 12 2026 15:24–15:26 ET): live stream with source, data age and feed status → a candle going from PROVISIONAL to COMPLETE → simulated outage (UNAVAILABLE banner, tick count frozen) → recovery to LIVE → replay of stored revisions from SQLite → back to live. It ends with one design decision (append-only revisions; the close is never replaced by an out-of-order tick). The video was assembled from screenshots captured from the browser while the app ran, with captions added.
 
 ## 2. Key design decisions
 1. **Own WebSocket loop with yfinance's protobuf schema.** `yfinance.AsyncWebSocket.listen()` hides exceptions and reconnects silently, so the app could not report *why* the feed was down. Managing the socket made every state observable ([evidence log #1](EVIDENCE-LOG.md)).
