@@ -1,12 +1,12 @@
 # Assignment 4.1 — Market Data and the Dashboard
 
-**Student:** Fernanda Garza ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
+**Student:** YOUR_NAME ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
 **Application:** *Fer's Market Desk* — a local live market workstation
 
 | | |
 |---|---|
 | **GitHub repository** | https://github.com/ferrgarzaa/fers-market-desk |
-| **Submitted commit** | `COMMIT_SHA` — https://github.com/ferrgarzaa/fers-market-desk/commit/COMMIT_SHA |
+| **Submitted commit** | `09d723735e581678aa6bc50fbc06248036ff9fd1` — https://github.com/ferrgarzaa/fers-market-desk/commit/09d723735e581678aa6bc50fbc06248036ff9fd1 |
 | **Demo video (30–60 s)** | VIDEO_LINK |
 | **CI** | https://github.com/ferrgarzaa/fers-market-desk/actions |
 
