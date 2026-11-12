@@ -40,3 +40,9 @@ Each entry links an intention, the instruction that produced it, the resulting c
 * **Command:** `npx playwright test` (backend in fake mode plus Vite).
 * **Observation:** the test passed in 2.0 s and produced the screenshots `docs/evidence/e2e-live.png`, `e2e-outage.png` and `e2e-replay.png`.
 * **Uncertainty:** the browser test uses the fake feed. The live Yahoo path is shown in the demo video.
+
+### 6. Live observation — real disconnect and automatic recovery (student's laptop)
+* **Question:** does the live path behave as designed outside the test sandbox?
+* **Observation (SQLite `feed_events` on my machine, Nov 12 2026, ET):** LIVE from 14:38:13; simulated outage 14:40:37 → LIVE 14:40:38; **real Yahoo disconnect** 14:58:29 `ConnectionClosedError: no close frame received or sent – retry #1 in 2s` → connecting → connected → LIVE at 14:58:36. 4,236 `yahoo_ws` ticks stored by 15:16.
+* **Decision:** no change needed. This confirms design decision #1 (owning the socket loop): the failure was visible, logged with its cause, and recovered without user action.
+* **Uncertainty:** two history requests for BTC-USD timed out (20 s), so those intervals started without backfilled bars; the stream itself was unaffected.

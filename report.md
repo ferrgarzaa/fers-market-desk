@@ -50,6 +50,7 @@
 * **Backend: 22/22 pytest tests pass.** They cover duplicates, same-time/different-price, the revision sequence, no phantom revisions, the out-of-order close/open/volume rules, completion by new bucket and by clock, late revisions, cumulative-volume reset, history/live merging, replay order, restart persistence, decoding Yahoo's real protobuf format, a **real unreachable source → UNAVAILABLE plus backoff**, outage and recovery, and an end-to-end WebSocket/API test.
 * **Browser: the Playwright test passes.** Feed badge LIVE, chart canvas, prices, data age, provisional tag, stored observations, interval switch, **outage banner, state and event**, recovery, replay. Screenshots: [live](docs/evidence/e2e-live.png), [outage](docs/evidence/e2e-outage.png), [replay](docs/evidence/e2e-replay.png).
 * **GitHub Actions** runs both suites on every push.
+* **Live run on my laptop (Windows 11, Nov 12 2026, 14:38–15:16 ET):** the app stored **4,236 live `yahoo_ws` ticks** (AAPL 1,213 · TSLA 1,235 · NVDA 1,300 · BTC-USD 246 · ETH-USD 242) and 4,024 history bars. `feed_events` recorded a **real Yahoo disconnect** at 14:58:29 (`ConnectionClosedError: no close frame received or sent – retry #1 in 2s`) followed by automatic reconnection and LIVE again at 14:58:36. The simulated outage was also exercised at 14:40:37 and recovered at 14:40:38. Two history requests (BTC-USD 1m/5m) timed out after 20 s and were logged as `history_unavailable`; the live stream continued unaffected.
 * **Mocked vs. live:** the automated tests use the clearly labelled fake feed or synthetic frames. The live Yahoo path is shown in the video, and the unavailable state was also observed on a real network failure. The full table is in [VERIFICATION.md](docs/VERIFICATION.md).
 
 ## 4. Remaining limitations
@@ -58,6 +59,7 @@
 * The first live candle after startup may begin mid-interval. When a history bar exists for that bucket, the live candle is kept, so its open can differ from Yahoo's bar.
 * The NYSE session indicator does **not model exchange holidays** or half days.
 * Candle completion by the clock uses the backend's wall clock, so a badly skewed system clock would finalize candles early or late.
+* The history backfill uses a 20-second timeout per request; on a slow connection some intervals may start without history (logged as `history_unavailable`).
 * Replay is limited to the most recent 1,500 revisions of the selected pair.
 * Browser tests run against the fake feed. The live stream is verified manually and in the video.
 * The SMA indicators, simulated trading and backtesting are scheduled for Part 4.2.
