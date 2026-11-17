@@ -1,6 +1,6 @@
 # Assignment 4.1 — Market Data and the Dashboard
 
-**Student:** YOUR_NAME ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
+**Student:** Fernanda Garza Martínez ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
 **Application:** *Fer's Market Desk* — a local live market workstation
 
 | | |

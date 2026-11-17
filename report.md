@@ -1,6 +1,6 @@
 # Assignment 4.2 — Indicators, Simulated Trading, and Backtesting
 
-**Student:** YOUR_NAME ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
+**Student:** Fernanda Garza Martínez ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
 **Application:** *Fer's Market Desk* — continued from Part 4.1 ([4.1 report](docs/reports/report-4.1.md))
 
 | | |
