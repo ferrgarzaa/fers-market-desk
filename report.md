@@ -6,7 +6,7 @@
 | | |
 |---|---|
 | **GitHub repository** | https://github.com/ferrgarzaa/fers-market-desk |
-| **Submitted commit** | `COMMIT_SHA` — https://github.com/ferrgarzaa/fers-market-desk/commit/COMMIT_SHA |
+| **Submitted commit** | `b834d41b1e0767d2f05a4cd1afa1425afd7c1e9d` — https://github.com/ferrgarzaa/fers-market-desk/commit/b834d41b1e0767d2f05a4cd1afa1425afd7c1e9d |
 | **Demo video (42 s)** | https://github.com/ferrgarzaa/fers-market-desk/blob/main/docs/demo/fers-market-desk-4.2-demo.mp4 (click *View raw* / download to play) |
 | **CI (GitHub Actions)** | https://github.com/ferrgarzaa/fers-market-desk/actions |
 | **Strategy & assumptions** | [docs/STRATEGY.md](docs/STRATEGY.md) |
