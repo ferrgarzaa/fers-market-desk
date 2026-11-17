@@ -48,3 +48,29 @@ SELECT id, symbol, source_time_ms, received_time_ms, price FROM observations WHE
 -- outage history
 SELECT datetime(time_ms/1000,'unixepoch'), state, detail FROM feed_events ORDER BY id DESC LIMIT 20;
 ```
+
+---
+## Part 4.2 tables (`backend/app/broker.py`)
+
+### `sim_accounts`
+`account_id` (PK: `live` for the bot; a backtest uses its own in-memory account), `kind`, `starting_cash`, `cash`, `fee_rate`, `slippage`, `alloc`, `created_ms`, `params_json`. An existing account keeps the settings it was created with.
+
+### `sim_orders` — every signal becomes an order row, even when it is not executed
+`id, account_id, symbol, side (BUY|SELL), status (pending|filled|skipped), reason, signal_bar` (bucket of the completed candle whose close produced the signal), `signal_close, sma_fast, sma_slow, created_ms, filled_ms, note` (why it was skipped).
+
+### `sim_fills` — executions
+`id, account_id, order_id → sim_orders, symbol, side, qty, ref_price` (open of the fill candle), `fill_price` (after slippage), `fee, fill_bar` (bucket of the fill candle), `realized_pnl` (SELL only), `cash_after, time_ms`.
+
+### `sim_positions`
+`(account_id, symbol)` PK, `qty, avg_cost` (includes the buy fee), `opened_bar`. Long-only, so there is at most one row per symbol.
+
+### `backtest_runs`
+`id, created_ms, symbol, interval, fast, slow, bars, first_bar, last_bar, params_json` (costs and sizing), `metrics_json, trades_json, equity_json` (the curve and its benchmark).
+
+```sql
+-- the bot's decisions and what happened to each one
+SELECT o.id, o.symbol, o.side, o.status, o.note, datetime(o.signal_bar,'unixepoch') AS signal_bar,
+       f.fill_price, f.qty, f.fee, f.realized_pnl
+FROM sim_orders o LEFT JOIN sim_fills f ON f.order_id = o.id
+WHERE o.account_id = 'live' ORDER BY o.id;
+```

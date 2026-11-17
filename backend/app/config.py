@@ -31,3 +31,13 @@ RECONNECT_MIN_S = float(os.getenv("RECONNECT_MIN_S", "2"))
 RECONNECT_MAX_S = float(os.getenv("RECONNECT_MAX_S", "30"))
 # Whether to load recent historical bars on startup (yahoo mode).
 BACKFILL = os.getenv("BACKFILL", "1") == "1"
+
+# ---- Part 4.2: strategy and simulated account -------------------------------------------
+SMA_FAST = int(os.getenv("SMA_FAST", "9"))
+SMA_SLOW = int(os.getenv("SMA_SLOW", "21"))
+# The live bot trades this interval, on COMPLETED candles only.
+STRATEGY_INTERVAL = os.getenv("STRATEGY_INTERVAL", "1m")
+STARTING_CASH = float(os.getenv("STARTING_CASH", "100000"))
+FEE_RATE = float(os.getenv("FEE_RATE", "0.001"))      # 0.10 % commission per fill
+SLIPPAGE = float(os.getenv("SLIPPAGE", "0.0005"))     # 0.05 % against us on every fill
+ALLOC = float(os.getenv("ALLOC", "0.10"))             # 10 % of cash per BUY

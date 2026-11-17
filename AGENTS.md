@@ -9,6 +9,8 @@ This repository is a course project (IST 402, Assignment 4). It is built in cumu
 * **Persist before broadcast.** Every observation goes through `CandleStore` (SQLite) before it reaches a browser.
 * **Never overwrite history silently.** Candle changes must bump `revision` and append to `candle_revisions`.
 * **Provisional ≠ complete.** Anything that computes signals must state whether it used the provisional candle. Confirmed signals use complete candles only.
+* **No look-ahead.** A decision at bar i may use only closes ≤ i and executes at the open of bar i+1. Keep `test_no_look_ahead_*` and `test_live_bot_makes_exactly_the_backtest_trades` passing; never "fix" them by loosening them.
+* **Accounting identity.** equity − starting_cash must equal realized + unrealized. Any change to the broker must keep `test_accounting_identity_holds_over_random_trading` green.
 * Keep the docs describing the system **that exists**: update `docs/` and the README in the same commit as a behaviour change.
 
 ## Layout
@@ -17,7 +19,11 @@ backend/app/config.py   env-driven settings
 backend/app/db.py       schema + connect()
 backend/app/store.py    CandleStore: identity, duplicates, revisions, out-of-order, completion, queries
 backend/app/feed.py     YahooFeed (live), FakeFeed (tests), history backfill
-backend/app/main.py     FastAPI app, Hub (WS clients, clock loop, replay), REST endpoints
+backend/app/main.py     FastAPI app, Hub (WS clients, clock loop, replay, live bot), REST endpoints
+backend/app/indicators.py  SMA batch + incremental, crossover rule, provisional peek
+backend/app/broker.py   SimBroker: orders, fills, positions, fees/slippage, accounting identity
+backend/app/trader.py   LiveTrader: SMA crossover on completed candles -> SimBroker
+backend/app/backtest.py event-driven backtest (same detector + broker), metrics, saved runs
 backend/tests/          pytest (store rules, feed decoding and failure, API end to end)
 frontend/src/store.js   reactive state + browser WebSocket
 frontend/src/components ChartPanel (lightweight-charts v5), panels

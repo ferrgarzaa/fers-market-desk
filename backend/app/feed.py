@@ -231,7 +231,7 @@ def fake_history(symbol: str, interval: str, secs: int, count: int = 120, seed: 
 HISTORY_PERIOD = {"1m": "1d", "5m": "5d", "15m": "5d"}
 
 
-def yahoo_history(symbol: str, interval: str, limit: int = 400) -> list[Bar]:
+def yahoo_history(symbol: str, interval: str, limit: int = 2000) -> list[Bar]:
     """Blocking call (run it in a thread). Recent bars from yfinance's HTTP history API."""
     import yfinance as yf
 

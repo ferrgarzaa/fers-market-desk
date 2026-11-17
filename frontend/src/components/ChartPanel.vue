@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { CandlestickSeries, CrosshairMode, HistogramSeries, LineStyle, createChart } from 'lightweight-charts'
+import { CandlestickSeries, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers } from 'lightweight-charts'
 import { onChartMessage, selectInterval, state } from '../store.js'
 import { ET, FEED_STATES, ageClass, fmtAge, fmtPrice, fmtTimeET, fmtVol } from '../format.js'
 
@@ -9,6 +9,39 @@ const legend = ref(null)          // candle shown in the legend (hovered or late
 const latest = ref(null)
 const bars = new Map()            // time -> candle (current version)
 let chart, candleSeries, volSeries, provLine = null
+let fastSeries, slowSeries, markers
+const ind = new Map()             // time -> {fast, slow, signal, provisional}
+const indMeta = ref({ fast: 9, slow: 21, state: '' })
+const FAST_C = '#22d3ee', SLOW_C = '#fbbf24'
+
+function lineData(key) {
+  return [...ind.values()].sort((a, b) => a.time - b.time).filter((p) => p[key] != null)
+    .map((p) => ({ time: p.time, value: p[key], ...(p.provisional ? { color: 'rgba(233,228,245,.35)' } : {}) }))
+}
+function renderIndicators() {
+  fastSeries.setData(lineData('fast'))
+  slowSeries.setData(lineData('slow'))
+  const ms = []
+  for (const p of [...ind.values()].sort((a, b) => a.time - b.time)) {
+    if (!p.signal) continue
+    const buy = p.signal === 'BUY'
+    if (p.provisional) {
+      ms.push({ time: p.time, position: buy ? 'belowBar' : 'aboveBar', shape: 'circle', color: '#a855f7', text: `${p.signal}? (provisional)` })
+    } else {
+      ms.push({ time: p.time, position: buy ? 'belowBar' : 'aboveBar', shape: buy ? 'arrowUp' : 'arrowDown', color: buy ? UP : DOWN, text: p.signal })
+    }
+  }
+  markers.setMarkers(ms)
+}
+function setIndicators(i, replace) {
+  if (replace) ind.clear()
+  if (!i) return
+  indMeta.value = { fast: i.fast, slow: i.slow, state: i.state }
+  // a newer point means older provisional points are no longer provisional candidates
+  for (const p of i.points) ind.set(p.time, p)
+  for (const [t, p] of ind) if (p.provisional && i.points.length && t < i.points.at(-1).time) ind.delete(t)
+  renderIndicators()
+}
 let unsubscribe
 
 const UP = '#4ade80', DOWN = '#f472b6'
@@ -74,13 +107,17 @@ function onMessage(m) {
   if (m.type === 'snapshot') {
     if (m.symbol !== state.symbol || m.interval !== state.interval) return
     setAll(m.candles)
+    setIndicators(m.indicators, true)
     chart.timeScale().fitContent()
     const n = m.candles.length
     if (n > 150) chart.timeScale().setVisibleLogicalRange({ from: n - 150, to: n + 5 })
   } else if (m.type === 'candle') {
     if (m.candle.symbol === state.symbol && m.candle.interval === state.interval) apply(m.candle)
+  } else if (m.type === 'indicators_tail') {
+    if (m.symbol === state.symbol && m.interval === state.interval && !state.replay.active) setIndicators(m.indicators, false)
   } else if (m.type === 'replay_start') {
     setAll([])
+    setIndicators(null, true)
   } else if (m.type === 'replay_candle') {
     const r = m.candle
     apply({ ...r, symbol: state.symbol, interval: state.interval, source: `replay · ${r.reason}` })
@@ -109,6 +146,9 @@ onMounted(() => {
   candleSeries = chart.addSeries(CandlestickSeries, {
     upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN,
   })
+  fastSeries = chart.addSeries(LineSeries, { color: FAST_C, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false, title: 'SMA9' })
+  slowSeries = chart.addSeries(LineSeries, { color: SLOW_C, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false, title: 'SMA21' })
+  markers = createSeriesMarkers(candleSeries, [])
   volSeries = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false }, 1)
   chart.panes()[1]?.setHeight(110)
 
@@ -120,6 +160,8 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { unsubscribe?.(); chart?.remove() })
 
+const legendInd = computed(() => legend.value ? ind.get(legend.value.time) : null)
+const strat = computed(() => state.status?.strategy?.[state.symbol])
 const tick = computed(() => state.ticks[state.symbol])
 const feed = computed(() => state.status?.feed)
 const sourceAge = computed(() => tick.value ? state.now - tick.value.source_time_ms : null)
@@ -155,6 +197,19 @@ const banner = computed(() => {
       </span>
       <span class="muted">rev {{ legend.revision }} · {{ legend.source }}</span>
     </div>
+    <div class="legend ind" data-testid="sma-legend">
+      <span :style="{ color: '#22d3ee' }">SMA{{ indMeta.fast }} <b>{{ fmtPrice(legendInd?.fast) }}</b></span>
+      <span :style="{ color: '#fbbf24' }">SMA{{ indMeta.slow }} <b>{{ fmtPrice(legendInd?.slow) }}</b></span>
+      <span v-if="legendInd?.fast != null && legendInd?.slow != null"
+            :class="legendInd.fast > legendInd.slow ? 'up' : 'down'">
+        {{ legendInd.fast > legendInd.slow ? '▲ fast above slow (bullish)' : '▼ fast below slow (bearish)' }}
+      </span>
+      <span v-if="legendInd?.provisional" class="pill accent">uses PROVISIONAL candle — not traded</span>
+      <span v-if="legendInd?.signal && !legendInd.provisional" class="pill" :class="legendInd.signal === 'BUY' ? 'up' : 'down'">
+        CONFIRMED {{ legendInd.signal }} (completed candle)</span>
+      <span v-if="legendInd?.signal && legendInd.provisional" class="pill accent" data-testid="prov-signal">
+        PROVISIONAL {{ legendInd.signal }}? — may disappear before the candle closes</span>
+    </div>
     <div class="age-strip">
       <span>SOURCE <b class="accent">{{ feed?.source || '—' }}</b></span>
       <span>DATA AGE <b :class="ageClass(sourceAge)" data-testid="data-age">{{ fmtAge(sourceAge) }}</b>
@@ -172,6 +227,7 @@ const banner = computed(() => {
 .ivs { display: flex; gap: 4px; }
 .legend, .age-strip { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 8px; align-items: center; border-bottom: 1px solid var(--line); }
 .age-strip { font-size: 11px; color: var(--muted); }
+.legend.ind { font-size: 11px; }
 .age-strip b { color: var(--text); }
 .banner { padding: 5px 8px; font-weight: 700; letter-spacing: .04em; font-size: 11px; }
 .banner.bad { background: rgba(244,114,182,.18); color: var(--down); border-bottom: 1px solid var(--down); }

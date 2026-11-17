@@ -68,3 +68,23 @@ export const FEED_STATES = {
   stale: { dot: 'stale', cls: 'warn', label: 'STALE' },
   unavailable: { dot: 'bad', cls: 'down', label: 'UNAVAILABLE' },
 }
+
+export function fmtMoney(v, signed = false) {
+  if (v == null || Number.isNaN(v)) return '—'
+  const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (!signed) return (v < 0 ? '-$' : '$') + s
+  return (v > 0 ? '+$' : v < 0 ? '-$' : '$') + s
+}
+export function fmtPct(v, d = 2) {
+  if (v == null || Number.isNaN(v)) return '—'
+  return (v > 0 ? '+' : '') + v.toFixed(d) + '%'
+}
+export function fmtQty(q) {
+  if (q == null) return '—'
+  return q >= 100 ? q.toFixed(2) : q >= 1 ? q.toFixed(4) : q.toPrecision(4)
+}
+export const pnlClass = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'muted')
+export function fmtBarET(t) {
+  if (t == null) return '—'
+  return new Date(t * 1000).toLocaleString('en-US', { timeZone: ET, hour12: false, month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}

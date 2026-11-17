@@ -1,6 +1,8 @@
 """End-to-end through FastAPI: fake feed -> store -> REST and WebSocket."""
 import time
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -51,3 +53,27 @@ def test_rejects_unknown_symbol(tmp_path):
     with TestClient(app) as client:
         assert client.get("/api/candles", params={"symbol": "NOPE"}).status_code == 404
         assert client.get("/api/candles", params={"symbol": "BTC-USD", "interval": "2h"}).status_code == 400
+
+
+def test_part42_endpoints_indicators_account_backtest(tmp_path):
+    app = create_app(db_path=tmp_path / "t.db", feed_mode="fake")
+    with TestClient(app) as client:
+        ind = client.get("/api/indicators", params={"symbol": "BTC-USD", "interval": "1m"}).json()
+        assert ind["fast"] == 9 and ind["slow"] == 21 and len(ind["points"]) > 50
+        assert ind["points"][-1]["provisional"] is True
+        assert all(p["fast"] is None for p in ind["points"][:8])
+
+        acct = client.get("/api/account").json()
+        assert acct["starting_cash"] == 100_000 and acct["config"]["alloc"] == 0.10
+        st = client.get("/api/status").json()
+        assert st["strategy"]["BTC-USD"]["state"] in ("bullish", "bearish")
+        assert st["strategy"]["BTC-USD"]["bars_seen"] >= 100          # primed from stored history
+
+        r = client.post("/api/backtest", json={"symbol": "ETH-USD", "interval": "1m"}).json()
+        m = r["metrics"]
+        assert m["bars"] >= 100 and r["run_id"] >= 1 and r["excluded_provisional"] >= 0
+        assert m["final_equity"] - 100_000 == pytest.approx(m["realized_pnl"] + m["unrealized_pnl"], abs=1e-6)
+        assert client.get("/api/backtests").json()[0]["id"] == r["run_id"]
+        assert client.post("/api/backtest", json={"symbol": "ETH-USD", "fast": 30, "slow": 10}).status_code == 400
+
+        assert client.post("/api/account/reset").json()["cash"] == 100_000

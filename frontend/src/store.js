@@ -13,7 +13,18 @@ export const state = reactive({
   observations: [],          // recent stored observations for the selected symbol
   replay: { active: false, index: 0, count: 0, done: false },
   now: Date.now(),
+  // Part 4.2
+  toasts: [],                // recent simulated orders/fills shown as pop-ups
+  backtest: null,            // last backtest result
+  backtestBusy: false,
+  backtestError: '',
 })
+
+function toast(kind, text) {
+  const id = Math.random()
+  state.toasts.push({ id, kind, text })
+  setTimeout(() => { state.toasts = state.toasts.filter((t) => t.id !== id) }, 6000)
+}
 
 const chartListeners = new Set()
 export function onChartMessage(fn) {
@@ -87,8 +98,17 @@ function handle(m) {
     case 'snapshot':
       state.replay = { active: false, index: 0, count: 0, done: false }
       break
+    case 'order':
+      if (m.order.status === 'skipped') toast('skip', `SIGNAL ${m.order.side} ${m.order.symbol} skipped: ${m.order.note}`)
+      else toast('order', `SIGNAL ${m.order.side} ${m.order.symbol} → order pending (fills at next candle open)`)
+      break
+    case 'fill':
+      toast(m.fill.side === 'BUY' ? 'buy' : 'sell',
+        `SIM FILL ${m.fill.side} ${m.fill.qty.toPrecision(4)} ${m.fill.symbol} @ ${m.fill.fill_price.toFixed(2)}` +
+        (m.fill.side === 'SELL' ? ` · P/L ${m.fill.realized_pnl.toFixed(2)}` : ''))
+      break
   }
-  if (['snapshot', 'candle', 'replay_start', 'replay_candle', 'replay_done'].includes(m.type)) {
+  if (['snapshot', 'candle', 'indicators_tail', 'replay_start', 'replay_candle', 'replay_done'].includes(m.type)) {
     chartListeners.forEach((fn) => fn(m))
   }
 }
@@ -110,6 +130,28 @@ export async function setOutage(enabled) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
   })
+}
+
+export async function runBacktest(fast, slow) {
+  state.backtestBusy = true
+  state.backtestError = ''
+  try {
+    const r = await fetch('/api/backtest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: state.symbol, interval: state.interval, fast, slow }),
+    })
+    const body = await r.json()
+    if (!r.ok) throw new Error(body.detail || r.statusText)
+    state.backtest = body
+  } catch (e) {
+    state.backtestError = String(e.message || e)
+  } finally {
+    state.backtestBusy = false
+  }
+}
+
+export async function resetAccount() {
+  await fetch('/api/account/reset', { method: 'POST' })
 }
 
 setInterval(() => { state.now = Date.now() }, 250)

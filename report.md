@@ -1,67 +1,81 @@
-# Assignment 4.1 — Market Data and the Dashboard
+# Assignment 4.2 — Indicators, Simulated Trading, and Backtesting
 
 **Student:** YOUR_NAME ([ferrgarzaa](https://github.com/ferrgarzaa)) · IST 402
-**Application:** *Fer's Market Desk* — a local live market workstation
+**Application:** *Fer's Market Desk* — continued from Part 4.1 ([4.1 report](docs/reports/report-4.1.md))
 
 | | |
 |---|---|
 | **GitHub repository** | https://github.com/ferrgarzaa/fers-market-desk |
-| **Submitted commit** | `09d723735e581678aa6bc50fbc06248036ff9fd1` — https://github.com/ferrgarzaa/fers-market-desk/commit/09d723735e581678aa6bc50fbc06248036ff9fd1 |
-| **Demo video (47 s)** | https://github.com/ferrgarzaa/fers-market-desk/blob/main/docs/demo/fers-market-desk-demo.mp4 (click *View raw* / download to play) |
-| **CI** | https://github.com/ferrgarzaa/fers-market-desk/actions |
+| **Submitted commit** | `COMMIT_SHA` — https://github.com/ferrgarzaa/fers-market-desk/commit/COMMIT_SHA |
+| **Demo video (30–60 s)** | VIDEO_LINK |
+| **CI (GitHub Actions)** | https://github.com/ferrgarzaa/fers-market-desk/actions |
+| **Strategy & assumptions** | [docs/STRATEGY.md](docs/STRATEGY.md) |
+
+![Part 4.2 dashboard](docs/evidence/e2e-4.2-dashboard.png)
 
 ---
 
 ## 1. What was completed
 
-**Live visualization**
-* A Yahoo Finance live stream (`wss://streamer.finance.yahoo.com`, decoded with yfinance's `PricingData` protobuf) for **BTC-USD, ETH-USD, AAPL, TSLA and NVDA**. The two crypto pairs stream 24/7, so the live path can be shown at any hour.
-* FastAPI builds **1m / 5m / 15m candles** from the ticks. The browser receives them over a **WebSocket (`/ws`)** and draws them with **TradingView Lightweight Charts v5**: candlesticks plus a separate **volume pane**, with an interval selector.
-* **Source, data age and feed status are always visible.** The top-bar badge, the chart's "SOURCE / DATA AGE" strip, the Feed status panel (source time, receipt time, transit, last message, reconnects) and the per-symbol age in the watchlist all show them. Age is measured from the **source timestamp**, so a frequently refreshing screen cannot hide old data. Feed states are LIVE, CONNECTED, CONNECTING, **STALE** (connected but silent, e.g. market closed) and **UNAVAILABLE** (with the real error and the retry count).
-* Unfinished candles are visibly **PROVISIONAL**: faded body, dashed purple price line and a `◌ PROVISIONAL` tag, compared with `✓ COMPLETE`.
-* UI choices (all mine): a dark purple/pink theme, a Bloomberg-style terminal grid, JetBrains Mono, a scrolling ticker tape, a green or pink price flash, and an ET clock with the NYSE session.
+**Indicators**
+* The chart shows **SMA 9** (cyan) and **SMA 21** (amber) for every symbol and every interval (1m, 5m, 15m).
+* A crossover confirmed on a **completed** candle appears as a green ▲ **BUY** or pink ▼ **SELL** arrow.
+* A cross that exists only on the **forming** candle appears as a purple ● **`BUY?`/`SELL?` (provisional)** circle, with a faded SMA point, and the legend says *"uses PROVISIONAL candle — not traded"*. The *Strategy* panel shows the SMA values, the bullish or bearish state, the last confirmed signal and a dashed **PROVISIONAL** warning.
+* The crossover rule remembers the sign of the last non-zero (SMA9 − SMA21). Crossing from negative to positive is a BUY, the opposite is a SELL, and a touch at exactly 0 is not a cross ([STRATEGY.md §1](docs/STRATEGY.md)).
 
-**Persistence and replay (SQLite)**
-* `observations` stores every accepted tick and history bar with its **identity key** (`UNIQUE obs_key`), **source time**, **receipt time**, source, arrival class and raw frame.
-* `candles` holds the current version of each candle with `revision` and **`is_complete`**. `candle_revisions` keeps **every version** with the reason (`open/tick/out_of_order/late/finalize/history`) and the observation that caused it.
-* `feed_events` logs every connect, failure, retry and stale period. `ingest_counters` counts duplicates and out-of-order arrivals.
-* **Replay** streams the stored revisions back, in the order they were recorded, labelled *REPLAY — not live*. It works with the market closed.
+**Simulated trading and accounting**
+* A **live bot** applies the SMA 9/21 crossover to **completed 1-minute candles** of BTC-USD, ETH-USD, AAPL, TSLA and NVDA. It is primed from the stored history at startup, so the SMAs are ready immediately.
+* Every signal becomes an order row in SQLite: **pending → filled**, or **skipped** with the reason (already long, no position to sell, already pending).
+* Fills are stored with the fill candle, the reference open, the fill price after slippage, the quantity, the fee, the realized P/L and the cash afterwards.
+* The *Sim account* panel shows equity, cash, **realized and unrealized P/L**, fees and **positions** (quantity, average cost, mark, unrealized P/L). The *Orders & fills* table shows the trade history, and a pop-up appears for each order or fill. A reset button restarts the account.
+* **Documented execution assumptions** ([STRATEGY.md §2](docs/STRATEGY.md)): $100,000 start; each BUY spends 10% of cash including the fee; long-only; the signal comes from the close and the **fill happens at the next candle's open**; 0.05% slippage against us; 0.10% commission on both legs; the buy fee is included in the cost basis; fractional quantities are allowed. Margin, shorts and partial fills are not modelled.
 
-**Working evidence**
-* The full path Yahoo → `YahooFeed` → `CandleStore` (SQLite) → `Hub` → `/ws` → chart is shown in the demo video.
-* **Unavailable feed:** a *Simulate feed outage* button closes the real Yahoo socket. A **real** failure was also captured: the development sandbox blocks Yahoo, and the app showed `UNAVAILABLE · InvalidProxyStatus: HTTP 403 – retry #5 in 8s` ([screenshot](docs/evidence/real-unavailable-feed.png)).
-* Documents: [README](README.md) (startup, database initialization, configuration; no credentials are needed or stored), [AGENTS.md](AGENTS.md), [docs/DATA_FLOW.md](docs/DATA_FLOW.md), [docs/SCHEMA.md](docs/SCHEMA.md), [docs/DESIGN.md](docs/DESIGN.md), [docs/VERIFICATION.md](docs/VERIFICATION.md), [AI-USE.md](AI-USE.md), [EVIDENCE-LOG.md](EVIDENCE-LOG.md).
+**Backtesting**
+* An **event-driven** backtester runs over the stored **completed** candles of the selected symbol and interval (Yahoo history backfill of up to 2,000 bars, plus live-recorded candles). Provisional candles are excluded, and their count is reported.
+* At each bar it fills earlier orders at the open, then reveals the close to the strategy, then marks the account. A decision at bar *i* can therefore use only closes up to *i*, and it executes at bar *i+1*.
+* It uses **the same detector and broker as the live bot**.
+* The *Backtest* panel shows the return, a **buy-and-hold benchmark with the same 10% sizing and costs**, the raw price change, maximum drawdown, round trips and win rate, fees, exposure, final equity, an **equity curve against the benchmark**, and the trade list. Every run is saved in `backtest_runs`.
 
-**Demo video contents** (recorded from the running app on my laptop with live Yahoo data, Nov 12 2026 15:24–15:26 ET): live stream with source, data age and feed status → a candle going from PROVISIONAL to COMPLETE → simulated outage (UNAVAILABLE banner, tick count frozen) → recovery to LIVE → replay of stored revisions from SQLite → back to live. It ends with one design decision (append-only revisions; the close is never replaced by an out-of-order tick). The video was assembled from screenshots captured from the browser while the app ran, with captions added.
+**Backtest result on Yahoo data** (run in the app on my laptop):
+
+BACKTEST_RESULTS
 
 ## 2. Key design decisions
-1. **Own WebSocket loop with yfinance's protobuf schema.** `yfinance.AsyncWebSocket.listen()` hides exceptions and reconnects silently, so the app could not report *why* the feed was down. Managing the socket made every state observable ([evidence log #1](EVIDENCE-LOG.md)).
-2. **Persist before broadcast.** Everything on the chart is already in SQLite and can be replayed.
-3. **Append-only revisions** instead of overwriting rows. One mechanism gives the audit trail, the evidence for revisions, and replay.
-4. **Rules for messy data** ([DATA_FLOW](docs/DATA_FLOW.md#duplicate-revised-and-out-of-order-observations)):
-   * *duplicate* → rejected by the UNIQUE identity, counted, and changes nothing;
-   * *revision* → `revision+1` and a new `candle_revisions` row, and only when a value actually changes;
-   * *out-of-order* → may widen the high or low, or set an earlier open, but **never replaces the close** (the close belongs to the newest source time) and adds no volume;
-   * *late tick for a complete candle* → revises it and the candle stays complete;
-   * *history bar vs. a live-built candle* → the live candle wins.
-5. **Two completion triggers:** a tick in a newer bucket, or the clock passing the interval end plus a 3-second grace period.
-6. **STALE is separate from UNAVAILABLE:** "connected but quiet" and "cannot connect" call for different reactions from the user.
-7. **History backfill runs in parallel** with the live stream, so a slow history API never delays live data ([evidence log #3](EVIDENCE-LOG.md)).
+1. **One rule set, two drivers.** The live bot and the backtest share `CrossoverDetector` and `SimBroker`, and a test proves they make **identical fills** on the same candles ([evidence #10](EVIDENCE-LOG.md)).
+2. **Event-driven backtest** instead of vectorized arrays, so "only information available at that moment" is built into the loop rather than left to discipline.
+3. **Signal at the close, fill at the next open.** Filling at the signal close would use a price that was already gone when the signal existed ([evidence #9](EVIDENCE-LOG.md)).
+4. **Completed candles only for trading.** The provisional cross is displayed but never executed. Late revisions do not rewrite decisions already taken.
+5. **Every signal leaves a row**, including skipped ones, with the reason.
+6. **Realistic friction by default**, and a **fairly sized benchmark** (the same 10% allocation), so the strategy is not flattered.
+7. SMA 9/21 was **fixed before seeing any result**, to avoid overfitting. The panel allows other windows, but choosing a window after seeing results would be in-sample tuning.
 
 ## 3. Verification results
-* **Backend: 22/22 pytest tests pass.** They cover duplicates, same-time/different-price, the revision sequence, no phantom revisions, the out-of-order close/open/volume rules, completion by new bucket and by clock, late revisions, cumulative-volume reset, history/live merging, replay order, restart persistence, decoding Yahoo's real protobuf format, a **real unreachable source → UNAVAILABLE plus backoff**, outage and recovery, and an end-to-end WebSocket/API test.
-* **Browser: the Playwright test passes.** Feed badge LIVE, chart canvas, prices, data age, provisional tag, stored observations, interval switch, **outage banner, state and event**, recovery, replay. Screenshots: [live](docs/evidence/e2e-live.png), [outage](docs/evidence/e2e-outage.png), [replay](docs/evidence/e2e-replay.png).
-* **GitHub Actions** runs both suites on every push.
-* **Live run on my laptop (Windows 11, Nov 12 2026, 14:38–15:16 ET):** the app stored **4,236 live `yahoo_ws` ticks** (AAPL 1,213 · TSLA 1,235 · NVDA 1,300 · BTC-USD 246 · ETH-USD 242) and 4,024 history bars. `feed_events` recorded a **real Yahoo disconnect** at 14:58:29 (`ConnectionClosedError: no close frame received or sent – retry #1 in 2s`) followed by automatic reconnection and LIVE again at 14:58:36. The simulated outage was also exercised at 14:40:37 and recovered at 14:40:38. Two history requests (BTC-USD 1m/5m) timed out after 20 s and were logged as `history_unavailable`; the live stream continued unaffected.
-* **Mocked vs. live:** the automated tests use the clearly labelled fake feed or synthetic frames. The live Yahoo path is shown in the video, and the unavailable state was also observed on a real network failure. The full table is in [VERIFICATION.md](docs/VERIFICATION.md).
+* **52/52 backend tests pass** (22 from 4.1 plus 30 new); [table](docs/VERIFICATION.md):
+  * **Trusted reference:** SMA equals **pandas `rolling(n).mean()`** for n = 1, 2, 9, 21, 50 (tolerance 1e-9). A hand-worked SMA and crossover example is also checked ([STRATEGY.md](docs/STRATEGY.md)).
+  * **Batch vs. incremental:** rolling SMA = batch SMA over 2,000 bars, and incremental signals = batch signals over 5,000 bars.
+  * **Unfinished candles:** the provisional point is flagged, its peek does not alter state, and the backtest excludes the provisional candle.
+  * **Accounting against known examples:** a no-cost round trip gives exactly +$1,000. With costs, cash is exactly $90,000 after the buy and the realized P/L is +$967.05 (hand-computed). The identity *equity − start = realized + unrealized* holds after every one of 400 random trading steps.
+  * **No look-ahead:** a run on the first *k* bars makes the same decisions as the first part of the full run (k = 60, 150, 333, 480), and changing future prices never changes earlier decisions.
+  * **Live bot = backtest** on the same 500 candles.
+* **Browser tests (Playwright): 2/2 pass.** The 4.1 path still works, and the 4.2 test checks the SMA legend, the primed strategy state, the account panel and a full backtest run (metrics, trades, equity canvas).
+* **GitHub Actions** runs pytest, the frontend build and Playwright on every push.
+* **Live observation (fake feed, local):** TSLA crossed on the 17:16 candle → *pending* → filled at the **17:17 open**, 330.5389 × 1.0005 = 330.7042, fee $9.99, cash $90,000.00. An AAPL SELL was recorded as *skipped — no position to sell*.
+* **Mocked vs. live:** the unit, API and browser tests use synthetic data or the labelled fake feed. The Yahoo run (live bot and backtest) is shown in the video and described above.
 
-## 4. Remaining limitations
-* Yahoo's streamer is **unofficial and undocumented**. It sends a message only when a quote changes, so a quiet symbol can look stale while the market is open.
-* **Per-candle volume is approximate.** It is derived from cumulative `day_volume` / `vol_24hr` differences. Crypto's rolling 24-hour volume can fall, and those deltas are counted as 0.
-* The first live candle after startup may begin mid-interval. When a history bar exists for that bucket, the live candle is kept, so its open can differ from Yahoo's bar.
-* The NYSE session indicator does **not model exchange holidays** or half days.
-* Candle completion by the clock uses the backend's wall clock, so a badly skewed system clock would finalize candles early or late.
-* The history backfill uses a 20-second timeout per request; on a slow connection some intervals may start without history (logged as `history_unavailable`).
-* Replay is limited to the most recent 1,500 revisions of the selected pair.
-* Browser tests run against the fake feed. The live stream is verified manually and in the video.
-* The SMA indicators, simulated trading and backtesting are scheduled for Part 4.2.
+## 4. What the backtest establishes — and what it leaves uncertain
+* **Establishes:** what these exact rules would have done on these exact stored candles, under the stated costs and fill model, without using future information. This is shown by construction and by tests.
+* **Leaves uncertain:**
+  * **Future performance.** A historical result does not establish it.
+  * **Sample size.** The windows are short (hours to a few days of 1m/5m/15m bars) and contain few trades, which is not statistically meaningful.
+  * **Survivorship bias.** The five instruments were chosen today because they exist and are popular.
+  * **Regime.** The result reflects one market regime only.
+  * **Gaps.** For stocks, overnight and weekend gaps are treated as consecutive bars.
+  * **Fill model.** A fixed slippage replaces a real spread and order-book depth.
+
+## 5. Remaining limitations
+* The model is long-only, with no shorting or margin. Fractional shares are a simplification for stocks.
+* The live bot trades 1m candles only. Signals on the 5m and 15m charts are shown for analysis but not traded live.
+* The live account persists in SQLite across restarts. A pending order survives a restart and fills at the next candle that arrives, which after a long gap may be much later.
+* Decisions are never revised after late data. That is intentional, but a late tick can make a stored candle differ slightly from the one the decision saw (the revision history keeps both).
+* The backtest uses only the history stored locally (the Yahoo backfill limits apply: about 1 day of 1m bars and 5 days of 5m/15m bars).
+* Part 4.3 will add the AI decision API, the chatbot, vision and live audio.

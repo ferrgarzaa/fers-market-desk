@@ -3,9 +3,11 @@
 A local market workstation: **Yahoo Finance live stream → FastAPI → SQLite → WebSocket → Vue + Lightweight Charts**.
 Part 4.1 delivers the live dashboard (candles and volume), persistence of every observation and candle revision, and replay. It also shows the data source, the data age, and the feed status, including when the feed is down.
 
-> All trading in this project is **simulated**. Part 4.1 places no orders at all.
+> All trading in this project is **simulated**. No order ever leaves the application.
 
-![Live dashboard](docs/evidence/e2e-live.png)
+**Part 4.2** adds SMA 9/21 indicators with crossover signals, a live simulated trading bot with full accounting, and an event-driven backtester. See [docs/STRATEGY.md](docs/STRATEGY.md).
+
+![Part 4.2 dashboard](docs/evidence/e2e-4.2-dashboard.png)
 
 ## What you see
 
@@ -20,6 +22,11 @@ Part 4.1 delivers the live dashboard (candles and volume), persistence of every 
 | Stored observations | The newest rows from the `observations` table, with source time, receipt time and arrival classification |
 | Feed event log | Rows from the `feed_events` table: every connect, failure, retry and stale period |
 | Replay | Re-plays every stored candle revision of the selected pair, in the order it was recorded. It works when the market is closed |
+| **SMA lines + signals** (4.2) | SMA9 (cyan) and SMA21 (amber) on the chart. ▲ BUY / ▼ SELL marks a crossover confirmed on a completed candle; ● `BUY?` / `SELL?` (purple) marks a provisional cross on the forming candle, which is never traded |
+| **Strategy** (4.2) | SMA values, bullish or bearish state, last confirmed signal, and the provisional-signal warning for the selected symbol |
+| **Sim account** (4.2) | Equity, cash, realized and unrealized P/L, fees, positions; reset button |
+| **Orders & fills** (4.2) | Every signal the live bot produced: pending, filled (fill bar, quantity, price, fee, P/L) or skipped (with the reason) |
+| **Backtest** (4.2) | Runs the strategy on the stored completed candles of the selected symbol and interval. Shows return vs. buy-and-hold, drawdown, trades, win rate, fees, the equity curve and the trade list |
 
 ## Requirements
 
@@ -70,7 +77,12 @@ No separate step is needed. On startup, `app/db.py` creates `backend/data/market
 | `STALE_AFTER_S` | `30` | Seconds of silence before a connected feed is reported STALE |
 | `FINALIZE_GRACE_S` | `3` | Seconds after an interval ends before its candle is marked complete |
 | `YAHOO_WS_URL` | Yahoo's streamer | Set it to a bad URL (e.g. `ws://127.0.0.1:9`) to reproduce a **real** unavailable feed |
-| `BACKFILL` | `1` | Load recent history bars from Yahoo on startup |
+| `BACKFILL` | `1` | Load recent history bars from Yahoo on startup (up to 2,000 per interval) |
+| `SMA_FAST` / `SMA_SLOW` | `9` / `21` | Strategy windows |
+| `STRATEGY_INTERVAL` | `1m` | Interval the live bot trades (completed candles only) |
+| `STARTING_CASH` | `100000` | Simulated starting cash |
+| `FEE_RATE` / `SLIPPAGE` | `0.001` / `0.0005` | Commission and slippage per fill |
+| `ALLOC` | `0.10` | Fraction of cash each BUY spends |
 
 ## Demonstrating the unavailable feed
 1. **Operator toggle:** click **⚠ Simulate feed outage** in the Feed status panel. The backend closes the Yahoo socket, the state becomes UNAVAILABLE, a pink banner appears over the chart, ticks stop being stored, and an event is logged. Click again to reconnect.
@@ -79,12 +91,13 @@ No separate step is needed. On startup, `app/db.py` creates `backend/data/market
 
 ## Tests
 ```bash
-cd backend && python -m pytest -v                              # 22 unit + API tests
+cd backend && python -m pytest -v                              # 52 unit + API tests
 cd frontend && npx playwright install chromium && npx playwright test   # browser test (fake feed)
 ```
 GitHub Actions runs both suites on every push ([.github/workflows/ci.yml](.github/workflows/ci.yml)). The details are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
 ## Documents
+* [docs/STRATEGY.md](docs/STRATEGY.md) — indicators, crossover rule, execution assumptions, accounting, backtest method and its limits
 * [docs/DATA_FLOW.md](docs/DATA_FLOW.md) — the path from Yahoo to the chart, and the handling of duplicates, revisions and out-of-order data
 * [docs/SCHEMA.md](docs/SCHEMA.md) — the SQLite schema
 * [docs/DESIGN.md](docs/DESIGN.md) — design decisions and UI choices

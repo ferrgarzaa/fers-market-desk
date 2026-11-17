@@ -1,6 +1,11 @@
 // Browser tests run the real backend in FEED_MODE=fake (deterministic, no network)
 // plus the Vite dev server. The live Yahoo path is verified manually / in the video.
 import { defineConfig } from '@playwright/test'
+import os from 'node:os'
+import path from 'node:path'
+
+// fresh database for every run, so results never depend on an earlier run
+const dbPath = path.join(os.tmpdir(), `fers-e2e-${Date.now()}.db`)
 
 const py = process.env.PYTHON || 'python3'
 
@@ -18,7 +23,7 @@ export default defineConfig({
       command: `${py} -m uvicorn app.main:app --port 8000`,
       cwd: '../backend',
       url: 'http://127.0.0.1:8000/api/health',
-      env: { FEED_MODE: 'fake', DB_PATH: '/tmp/fers-e2e.db', FINALIZE_GRACE_S: '1' },
+      env: { FEED_MODE: 'fake', DB_PATH: dbPath, FINALIZE_GRACE_S: '1' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

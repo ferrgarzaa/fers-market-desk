@@ -9,6 +9,7 @@ test('dashboard streams, shows source/age/status, survives an outage, and replay
   await expect(page.getByTestId('watchlist')).toContainText('BTC-USD')
   await expect(page.getByTestId('data-age')).not.toHaveText('—')
   await expect(page.getByTestId('candle-state')).toContainText('PROVISIONAL')
+  await page.getByTestId('tab-obs').click()
   await expect(page.getByTestId('observations')).toContainText('tick')
   await page.screenshot({ path: '../docs/evidence/e2e-live.png' })
 
@@ -20,6 +21,7 @@ test('dashboard streams, shows source/age/status, survives an outage, and replay
   await page.getByTestId('outage-btn').click()
   await expect(page.getByTestId('chart-banner')).toContainText('FEED UNAVAILABLE')
   await expect(page.getByTestId('feed-state')).toContainText('UNAVAILABLE')
+  await page.getByTestId('tab-events').click()
   await expect(page.getByTestId('event').first()).toContainText('UNAVAILABLE')
   await page.screenshot({ path: '../docs/evidence/e2e-outage.png' })
   await page.getByTestId('outage-btn').click()
@@ -31,4 +33,28 @@ test('dashboard streams, shows source/age/status, survives an outage, and replay
   await page.screenshot({ path: '../docs/evidence/e2e-replay.png' })
   await page.getByTestId('live-btn').click()
   await expect(page.getByTestId('chart-banner')).toHaveCount(0)
+})
+
+test('Part 4.2: SMA lines, strategy state, sim account and a backtest are visible', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('feed-badge')).toContainText('FEED LIVE')
+  // indicators legend shows both SMAs with numbers
+  await expect(page.getByTestId('sma-legend')).toContainText('SMA9')
+  await expect(page.getByTestId('sma-legend')).toContainText('SMA21')
+  await expect(page.getByTestId('sma-legend')).toContainText(/\d/)
+  // strategy panel primed from stored history -> bullish or bearish (not warming up)
+  await expect(page.getByTestId('strategy')).toContainText(/BULLISH|BEARISH/)
+  // simulated account
+  await expect(page.getByTestId('account')).toContainText('EQUITY')
+  await expect(page.getByTestId('account')).toContainText('$')
+  // run a backtest on the stored candles
+  await page.getByTestId('run-backtest').click()
+  await expect(page.getByTestId('bt-metrics')).toContainText('Return')
+  await expect(page.getByTestId('bt-metrics')).toContainText('Buy & hold')
+  await expect(page.getByTestId('bt-trades')).toBeVisible()
+  await expect(page.getByTestId('bt-equity').locator('canvas').first()).toBeVisible()
+  await page.screenshot({ path: '../docs/evidence/e2e-4.2-dashboard.png' })
+  // switching interval re-renders indicators for that interval
+  await page.getByTestId('iv-5m').click()
+  await expect(page.getByTestId('sma-legend')).toContainText('SMA21')
 })

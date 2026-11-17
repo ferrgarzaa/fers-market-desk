@@ -13,3 +13,15 @@
 
 ## Ownership
 The student reviewed the generated code, ran it locally against live Yahoo data, and can explain the data path and the duplicate, revision and out-of-order rules (docs/DATA_FLOW.md).
+
+## Part 4.2
+| Tool / model | Used for |
+|---|---|
+| **Claude Opus 5.5** (same agent workspace) | Generated `indicators.py`, `broker.py`, `trader.py` and `backtest.py`, the new Vue panels, 30 new tests and the docs (STRATEGY.md). It also ran the tests and browser checks in its sandbox and pushed to GitHub |
+
+**Choices I made before any code was written** (the agent asked; I chose): SMA **9/21**; **$100,000** starting cash with **10% of cash per trade**; **commission + slippage** (0.10% / 0.05%, fill at the next candle's open); and **everything on one screen** rather than tabs.
+
+**Where the approach changed and why:**
+* A hand-calculated expected value in an accounting test was wrong. The test exposed it, and the formula check confirmed the code (EVIDENCE-LOG #7).
+* The browser tests were made independent of tab state and of earlier runs (EVIDENCE-LOG #8).
+* The trusted reference for the SMA is pandas `rolling().mean()`, which was already installed as a yfinance dependency, so no new library was added.

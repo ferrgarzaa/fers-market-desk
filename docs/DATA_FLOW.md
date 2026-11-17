@@ -32,6 +32,17 @@
  TickerTape, FeedPanel, IntegrityPanel, ObservationsPanel, EventLog, ReplayPanel
 ```
 
+## Part 4.2 additions
+```
+ completed 1m candle (finalize revision) ──► LiveTrader ──► CrossoverDetector.update(close)
+                                                │                 └─ BUY/SELL? ─► SimBroker.submit → sim_orders (pending | skipped)
+ first revision of the NEXT candle ─────────────┴─► SimBroker.fill_pending(open) → sim_fills, sim_positions, sim_accounts.cash
+ every 1 s: status.account (cash, equity, P/L, positions, orders) + status.strategy (SMAs, state, provisional)
+ each candle push: indicators_tail (last 3 SMA points + signals, last one may be provisional)
+ POST /api/backtest ─► completed candles from SQLite ─► run_backtest (event-driven) ─► backtest_runs
+```
+The details and assumptions are in [STRATEGY.md](STRATEGY.md).
+
 ## Messages over `/ws`
 
 Server → browser
@@ -45,10 +56,13 @@ Server → browser
 | `feed_event` / `events` | feed state changes | when the state changes / on connect |
 | `observations` | the newest stored observations for the symbol | every 2 s (requested by the client) |
 | `replay_start` / `replay_candle` / `replay_done` | stored revisions, in order | during replay |
+| `indicators` (inside `snapshot`) / `indicators_tail` | SMA fast/slow points, confirmed and provisional signals | on snapshot / each candle push |
+| `order` / `fill` | a new simulated order (pending or skipped) / an execution | when the live bot acts |
 
 Browser → server: `subscribe {symbol, interval}`, `replay {speed}`, `stop_replay`, `observations`.
 
 REST endpoints (useful for tests and inspection): `GET /api/health`, `/api/status`, `/api/candles`, `/api/replay`, `/api/revisions`, `/api/observations`, `/api/feed-events`, and `POST /api/feed/outage {enabled}`.
+Part 4.2: `GET /api/indicators?symbol&interval&fast&slow`, `GET /api/account`, `POST /api/account/reset`, `POST /api/backtest {symbol, interval, fast, slow}` and `GET /api/backtests`.
 
 ## Time fields
 * **source time**: the timestamp Yahoo put on the quote (`PricingData.time`). Seconds are normalized to milliseconds.

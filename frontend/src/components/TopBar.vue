@@ -16,7 +16,7 @@ const dateET = computed(() => new Date(state.now).toLocaleDateString('en-US', {
     <div class="brand">
       <span class="logo">◆</span>
       <span class="name">FER'S MARKET DESK</span>
-      <span class="tag">SIMULATION WORKSTATION · PART 4.1</span>
+      <span class="tag">SIMULATION WORKSTATION · PART 4.2</span>
     </div>
     <div class="right">
       <span class="pill" :class="session.cls" data-testid="market-session">{{ session.label }}</span>
