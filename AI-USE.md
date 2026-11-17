@@ -25,3 +25,4 @@ The student reviewed the generated code, ran it locally against live Yahoo data,
 * A hand-calculated expected value in an accounting test was wrong. The test exposed it, and the formula check confirmed the code (EVIDENCE-LOG #7).
 * The browser tests were made independent of tab state and of earlier runs (EVIDENCE-LOG #8).
 * The trusted reference for the SMA is pandas `rolling().mean()`, which was already installed as a yfinance dependency, so no new library was added.
+* The 4.2 demo video was captured by the agent from my running app (live Yahoo data) through the Claude desktop app's browser pane. The agent ran the six backtests and assembled the frames with captions (ffmpeg). I started the app myself.
